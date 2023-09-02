@@ -41,7 +41,7 @@ class Visualizer:
         pad_value: int = 0,
         fps: int = 10,
         mode: str = "rainbow",  # 'cool', 'optical_flow'
-        linewidth: int = 2,
+        linewidth: float = 2.,
         show_first_frame: int = 10,
         tracks_leave_trace: int = 0,  # -1 for infinite
     ):
@@ -91,15 +91,20 @@ class Visualizer:
             video = transform(video)
             video = video.repeat(1, 1, 3, 1, 1)
 
-        res_video = self.draw_tracks_on_video(
-            video=video,
-            tracks=tracks,
-            visibility=visibility,
-            segm_mask=segm_mask,
-            gt_tracks=gt_tracks,
-            query_frame=query_frame,
-            compensate_for_camera_motion=compensate_for_camera_motion,
-        )
+        # res_video = video
+        try:
+            res_video = self.draw_tracks_on_video(
+                video=video,
+                tracks=tracks,
+                visibility=visibility,
+                segm_mask=segm_mask,
+                gt_tracks=gt_tracks,
+                query_frame=query_frame,
+                compensate_for_camera_motion=compensate_for_camera_motion,
+            )
+        except BaseException as e:
+            print(e)
+
         if save_video:
             self.save_video(res_video, filename=filename, writer=writer, step=step)
         return res_video
@@ -107,7 +112,7 @@ class Visualizer:
     def save_video(self, video, filename, writer=None, step=0):
         if writer is not None:
             writer.add_video(
-                f"{filename}_pred_track",
+                f"{filename}_track",
                 video.to(torch.uint8),
                 global_step=step,
                 fps=self.fps,
@@ -119,7 +124,7 @@ class Visualizer:
             clip = ImageSequenceClip(wide_list[2:-1], fps=self.fps)
 
             # Write the video file
-            save_path = os.path.join(self.save_dir, f"{filename}_pred_track.mp4")
+            save_path = os.path.join(self.save_dir, f"{filename}.mp4")
             clip.write_videofile(save_path, codec="libx264", fps=self.fps, logger=None)
 
             print(f"Video saved to {save_path}")
@@ -145,7 +150,7 @@ class Visualizer:
             gt_tracks = gt_tracks[0].detach().cpu().numpy()
 
         res_video = []
-
+        
         # process input video
         for rgb in video:
             res_video.append(rgb.copy())

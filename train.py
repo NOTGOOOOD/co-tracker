@@ -56,31 +56,31 @@ def fetch_optimizer(args, model):
 def forward_batch(batch, model, args, loss_fn=None, writer=None, step=0):
     rgbs = batch.video
     trajs_g = batch.trajectory
-    vis_g = batch.visibility
+    vis_g = batch.visibility    # B, T, N
     valids = batch.valid
     B, T, C, H, W = rgbs.shape
     assert C == 3
-    B, T, N, D = trajs_g.shape
+    B, T, N, D = trajs_g.shape # B, num_frames, num_points, 3
     device = rgbs.device
 
-    __, first_positive_inds = torch.max(vis_g, dim=1)
+    __, first_positive_inds = torch.max(vis_g, dim=1)   # get the frame which has the most of visiable points
     # We want to make sure that during training the model sees visible points
     # that it does not need to track just yet: they are visible but queried from a later frame
     N_rand = N // 4
     # inds of visible points in the 1st frame
-    nonzero_inds = [torch.nonzero(vis_g[0, :, i]) for i in range(N)]
+    nonzero_inds = [torch.nonzero(vis_g[0, :, i]) for i in range(N)]    # get idx of all visiable points on every frame 
     rand_vis_inds = torch.cat(
         [
             nonzero_row[torch.randint(len(nonzero_row), size=(1,))]
             for nonzero_row in nonzero_inds
         ],
         dim=1,
-    )
+    )   # sample visiable idx in every frame
     first_positive_inds = torch.cat(
         [rand_vis_inds[:, :N_rand], first_positive_inds[:, N_rand:]], dim=1
     )
     ind_array_ = torch.arange(T, device=device)
-    ind_array_ = ind_array_[None, :, None].repeat(B, 1, N)
+    ind_array_ = ind_array_[None, :, None].repeat(B, 1, N)  # B, T, N
     assert torch.allclose(
         vis_g[ind_array_ == first_positive_inds[:, None, :]],
         torch.ones_like(vis_g),

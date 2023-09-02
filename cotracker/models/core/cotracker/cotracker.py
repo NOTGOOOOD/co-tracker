@@ -118,11 +118,24 @@ class CoTracker(nn.Module):
         track_mask=None,
         iters=4,
     ):
+        """_summary_
+
+        Args:
+            fmaps (_type_): track features in all sliding window
+            coords_init (_type_): _description_
+            feat_init (_type_, optional): track features for the unseen frames and with previous predictions frame in the previous sliding window (adjacent sliding window)
+            vis_init (_type_, optional): _description_. Defaults to None.
+            track_mask (_type_, optional): _description_. Defaults to None.
+            iters (int, optional): _description_. Defaults to 4.
+
+        Returns:
+            _type_: _description_
+        """
         B, S_init, N, D = coords_init.shape
         assert D == 2
         assert B == 1
 
-        B, S, __, H8, W8 = fmaps.shape
+        B, S, __, H8, W8 = fmaps.shape 
 
         device = fmaps.device
 
@@ -143,12 +156,12 @@ class CoTracker(nn.Module):
         ffeats = feat_init.clone()
 
         times_ = torch.linspace(0, S - 1, S).reshape(1, S, 1)
-
+        
         pos_embed = sample_pos_embed(
             grid_size=(H8, W8),
             embed_dim=456,
             coords=coords,
-        )
+        ) # B, embed_dim, N
         pos_embed = rearrange(pos_embed, "b e n -> (b n) e").unsqueeze(1)
         times_embed = (
             torch.from_numpy(get_1d_sincos_pos_embed_from_grid(456, times_[0]))[None]
@@ -246,7 +259,9 @@ class CoTracker(nn.Module):
         ind_array = torch.arange(T, device=device)
         ind_array = ind_array[None, :, None].repeat(B, 1, N)
 
+        # mask untrack frame
         track_mask = (ind_array >= first_positive_inds[:, None, :]).unsqueeze(-1)
+
         # these are logits, so we initialize visibility with something that would give a value close to 1 after softmax
         vis_init = torch.ones((B, self.S, N, 1), device=device).float() * 10
 
@@ -277,7 +292,7 @@ class CoTracker(nn.Module):
                 fmaps_ = self.fnet(rgbs_)
             else:
                 fmaps_ = torch.cat(
-                    [fmaps_[self.S // 2 :], self.fnet(rgbs_[self.S // 2 :])], dim=0
+                    [fmaps_[self.S // 2 :], self.fnet(rgbs_[self.S // 2 :])], dim=0 # avoid repeat extract
                 )
             fmaps = fmaps_.reshape(
                 B, S, self.latent_dim, H // self.stride, W // self.stride
@@ -286,14 +301,15 @@ class CoTracker(nn.Module):
             curr_wind_points = torch.nonzero(first_positive_sorted_inds < ind + self.S)
             if curr_wind_points.shape[0] == 0:
                 ind = ind + self.S // 2
-                continue
+                continue    # current frame does not exit first-time points
+
             wind_idx = curr_wind_points[-1] + 1
 
             if wind_idx - prev_wind_idx > 0:
                 fmaps_sample = fmaps[
                     :, first_positive_sorted_inds[prev_wind_idx:wind_idx] - ind
                 ]
-
+                # Initialize track features Q, bilinearly sample from phi(It) with location P
                 feat_init_ = bilinear_sample2d(
                     fmaps_sample,
                     coords_init_[:, 0, prev_wind_idx:wind_idx, 0],
@@ -329,7 +345,7 @@ class CoTracker(nn.Module):
                 vis_predictions.append(torch.sigmoid(vis[:, :S_local]))
                 coord_predictions.append([coord[:, :S_local] for coord in coords])
                 wind_inds.append(wind_idx)
-
+  
             traj_e[:, ind : ind + self.S, :wind_idx] = coords[-1][:, :S_local]
             vis_e[:, ind : ind + self.S, :wind_idx] = vis[:, :S_local]
 

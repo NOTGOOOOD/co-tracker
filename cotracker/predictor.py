@@ -20,7 +20,8 @@ class CoTrackerPredictor(torch.nn.Module):
         self, checkpoint="cotracker/checkpoints/cotracker_stride_4_wind_8.pth"
     ):
         super().__init__()
-        self.interp_shape = (384, 512)
+        # self.interp_shape = (384, 512)
+        # self.interp_shape = (1024, 1920)
         self.support_grid_size = 6
         model = build_cotracker(checkpoint)
 
@@ -104,10 +105,10 @@ class CoTrackerPredictor(torch.nn.Module):
     ):
         B, T, C, H, W = video.shape
         assert B == 1
-
-        video = video.reshape(B * T, C, H, W)
-        video = F.interpolate(video, tuple(self.interp_shape), mode="bilinear")
-        video = video.reshape(B, T, 3, self.interp_shape[0], self.interp_shape[1])
+        self.interp_shape = (H, W)
+        # video = video.reshape(B * T, C, H, W)
+        # video = F.interpolate(video, tuple(self.interp_shape), mode="bilinear")
+        # video = video.reshape(B, T, 3, self.interp_shape[0], self.interp_shape[1])
 
         if queries is not None:
             queries = queries.clone()

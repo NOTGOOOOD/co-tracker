@@ -1,0 +1,8 @@
+assets/
+checkpoints/
+*.gz
+*.json
+*.mp4
+*.png
+*.pyc
+

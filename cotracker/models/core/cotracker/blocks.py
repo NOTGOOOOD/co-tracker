@@ -182,7 +182,7 @@ class BasicEncoder(nn.Module):
             )
             x = self.conv2(torch.cat([a, b, c], dim=1))
         else:
-            a = self.layer1(x)
+            a = self.layer1(x)  # BS, 64
             b = self.layer2(a)
             c = self.layer3(b)
             d = self.layer4(c)
